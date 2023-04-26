@@ -4,6 +4,7 @@ from threading import Thread
 from auth import app as auth_app
 from users import app as users_app
 from profiles import app as profiles_app
+from external import app as external_app
 
 # Crear una aplicación Flask maestra para ejecutar las aplicaciones de autenticación y CRUD en diferentes subprocesos.
 master_app = Flask(__name__)
@@ -24,6 +25,8 @@ auth_thread.start()
 crud_thread = Thread(target=run_app, args=[users_app,8000])
 crud_thread.start()
 crud_thread = Thread(target=run_app, args=[profiles_app,8001])
+crud_thread.start()
+crud_thread = Thread(target=run_app, args=[external_app,8002])
 crud_thread.start()
 
 # Ejecutar la aplicación maestra Flask

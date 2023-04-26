@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
-from flask_jwt_extended import jwt_required, JWTManager
+from flask_jwt_extended import jwt_required, JWTManager, get_jwt_identity
 from bson.objectid import ObjectId
+from utils import check_permissions
 import db as database
 
 app = Flask(__name__)
@@ -9,6 +10,7 @@ app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = "Bearer"
 client = database.init()
+users_collection = client["users"]
 profiles_collection = client["profiles"]
 jwt = JWTManager(app)
 
@@ -64,6 +66,12 @@ class Profile:
 @app.route('/profiles', methods=['POST'])
 @jwt_required()
 def create_profile():
+    current_user = get_jwt_identity()
+    user = users_collection.find_one({'username': current_user})
+    
+    # Verificar si el perfil del usuario tiene los permisos necesarios
+    check_permissions(user['profile'], ['create'], "profiles")
+
     data = request.get_json()
     name = data.get('name', None)
     permissions = data.get('permissions', [])
@@ -73,7 +81,6 @@ def create_profile():
 
     profile = Profile(name=name, permissions=permissions)
     profile.save()
-    print(profile)
 
     return jsonify({'message': 'Profile created successfully', 'profile': {
         'name': profile.name,
@@ -85,6 +92,12 @@ def create_profile():
 @app.route('/profiles/<string:profile_id>', methods=['GET'])
 @jwt_required()
 def get_profile(profile_id):
+    current_user = get_jwt_identity()
+    user = users_collection.find_one({'username': current_user})
+    
+    # Verificar si el perfil del usuario tiene los permisos necesarios
+    check_permissions(user['profile'], ['get'], "profiles")
+
     profile = Profile.find_by_id(profile_id)
     if not profile:
         return jsonify({'message': 'Profile not found'}), 404
@@ -97,6 +110,12 @@ def get_profile(profile_id):
 @app.route('/profiles/<string:profile_id>', methods=['PUT'])
 @jwt_required()
 def update_profile(profile_id):
+    current_user = get_jwt_identity()
+    user = users_collection.find_one({'username': current_user})
+    
+    # Verificar si el perfil del usuario tiene los permisos necesarios
+    check_permissions(user['profile'], ['update'], "profiles")
+
     data = request.get_json()
     new_name = data.get('name', None)
     new_permissions = data.get('permissions', None)
@@ -115,6 +134,12 @@ def update_profile(profile_id):
 @app.route('/profiles/<string:profile_id>', methods=['DELETE'])
 @jwt_required()
 def delete_profile(profile_id):
+    current_user = get_jwt_identity()
+    user = users_collection.find_one({'username': current_user})
+    
+    # Verificar si el perfil del usuario tiene los permisos necesarios
+    check_permissions(user['profile'], ['remove'], "profiles")
+
     profile = Profile.find_by_id(profile_id)
     if not profile:
         return jsonify({'message': 'Profile not found'}), 404
@@ -124,6 +149,12 @@ def delete_profile(profile_id):
 @app.route('/profiles', methods=['GET'])
 @jwt_required()
 def list_profiles():
+    current_user = get_jwt_identity()
+    user = users_collection.find_one({'username': current_user})
+    
+    # Verificar si el perfil del usuario tiene los permisos necesarios
+    check_permissions(user['profile'], ['list'], "profiles")
+    
     profiles = Profile.find_all()
     result = []
     for profile in profiles:
@@ -133,12 +164,3 @@ def list_profiles():
             'id': profile._id
         })
     return jsonify({'profiles': result}), 200
-
-def check_permissions(profile_id, required_permissions):
-    profile = Profile.find_by_id(profile_id)
-    if not profile:
-        # El perfil del usuario no existe
-        raise ValueError('Invalid profile ID')
-    if not all(p in profile.permissions for p in required_permissions):
-        # El perfil del usuario no tiene los permisos necesarios
-        raise ValueError('Insufficient permissions')
